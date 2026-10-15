@@ -15,10 +15,20 @@ const { CLOUDFLARE_API_TOKEN: TOKEN, CLOUDFLARE_ACCOUNT_ID: ACCOUNT } = process.
 if (!TOKEN || !ACCOUNT) throw new Error('CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required');
 const API = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/pages/projects`;
 
+// The API sometimes drops a connection after a long upload; try again.
 async function api(path, init = {}) {
-  const res = await fetch(API + path, { ...init, headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' } });
-  const body = await res.json().catch(() => ({}));
-  return { status: res.status, body };
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(API + path, { ...init, headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' } });
+      const body = await res.json().catch(() => ({}));
+      if (res.status >= 500 && attempt < 5) throw new Error(`HTTP ${res.status}`);
+      return { status: res.status, body };
+    } catch (err) {
+      if (attempt >= 5) throw err;
+      console.log(`api ${path || '/'}: ${err.message}, retrying`);
+      await new Promise((r) => setTimeout(r, attempt * 3000));
+    }
+  }
 }
 
 async function ensureProject(name) {
