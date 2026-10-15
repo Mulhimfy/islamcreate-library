@@ -14,7 +14,7 @@ Shamela 4 extraction (Hugging Face) ──► build.mjs ──► static sites o
 
 | Site | Files | |
 |---|---|---|
-| `main` | `manifest.json`, `catalog.json`, `b/<id>.json` | build id and hosts; every book; one book's card, contents and page labels |
+| `main` | `manifest.json`, `catalog.json`, `b/<id>.json`, `b/<id>.toc.json` | build id and hosts; every book; one book's card and page labels; its table of contents |
 | `idx` | `i/<bucket>.gz` | every term whose clitic-stripped key hashes to the bucket, with its page list inline when short |
 | `lst<n>` | `l/<part>-<k>.gz` | a long page list, as varint gaps or as a bitmap over all pages |
 | `txt<n>` | `t/<id>/<k>.gz` | pages `k·128 …` of a book: pages joined by `\f`, headings start with `\u0001`, footnotes follow a `\u001e` line |

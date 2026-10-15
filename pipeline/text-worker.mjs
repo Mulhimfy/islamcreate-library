@@ -4,7 +4,8 @@
 //   txt<shard>/t/<id>/<k>.gz   pages k·P … k·P+P-1, gzip; pages are joined
 //                              by \f, lines by \n; a heading line starts
 //                              with \u0001; footnotes follow a \u001e line
-//   main/b/<id>.json           card, table of contents, page labels
+//   main/b/<id>.json           card and page labels
+//   main/b/<id>.toc.json       table of contents: [page, depth, heading]
 // and appends, for every distinct term of the book, the pages it is on to
 // the term's hash partition: tmp/part-<worker>-<partition>.bin.
 import { readFileSync, openSync, writeSync, closeSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -147,10 +148,27 @@ for (let bi = from; bi < to; bi++) {
     toc.sort((x, y) => x[0] - y[0] || x[3] - y[3]);
   } catch {}
 
+  // Page labels: runs when the printed numbering mostly follows on;
+  // otherwise volume runs and one number per page (fatwa collections and
+  // magazines restart their numbering constantly).
+  let labels = runs;
+  if (runs.length > b.pages / 8 && runs.length > 64) {
+    const vols = [];
+    const nums = [];
+    pageLabels.forEach(([vol, num], i) => {
+      if (!vols.length || vols[vols.length - 1][1] !== vol) vols.push([i, vol]);
+      const n = Number(num);
+      nums.push(num === '' || !Number.isFinite(n) ? '' : n);
+    });
+    labels = { vols, nums };
+  }
+  // The contents can run to tens of thousands of headings; they have a
+  // file of their own, fetched when the reader opens them.
   writeFileSync(
     join(out, 'main', 'b', `${b.id}.json`),
-    JSON.stringify({ id: b.id, shamela: b.shamela, pages: b.pages, gpid: b.gpid, shard: b.shard, card: b.card || '', labels: runs, toc: toc.map((t) => t.slice(0, 3)) }),
+    JSON.stringify({ id: b.id, shamela: b.shamela, pages: b.pages, gpid: b.gpid, shard: b.shard, card: b.card || '', labels, toc: toc.length }),
   );
+  if (toc.length) writeFileSync(join(out, 'main', 'b', `${b.id}.toc.json`), JSON.stringify(toc.map((t) => t.slice(0, 3))));
 
   stats.words += words;
   stats.books[b.id] = { words, volumes: vols.size };
