@@ -39,8 +39,7 @@ jobs:
         env:
           LIMIT: ${{ inputs.limit }}
         run: |
-          pip install -q -U "huggingface_hub[hf_xet]"
-          python3 pipeline/download.py /mnt/work/src "$LIMIT"
+          pipeline/download.sh /mnt/work/src "$LIMIT"
           du -sh /mnt/work/src
 
       - name: Build
