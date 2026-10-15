@@ -205,7 +205,9 @@ await writeFile(join(OUT, 'main/manifest.json'), JSON.stringify(manifest, null, 
 // Data never changes under a URL within a build; the client asks for
 // ?v=<build>, so a year of caching is safe. The manifest itself is short.
 const headers = (extra = '') => `/*\n  Access-Control-Allow-Origin: *\n  Cache-Control: public, max-age=31536000, immutable\n  X-Content-Type-Options: nosniff\n${extra}`;
-await writeFile(join(OUT, 'main/_headers'), headers('/manifest.json\n  Cache-Control: public, max-age=300\n  Access-Control-Allow-Origin: *\n'));
+// Rules stack, so the manifest detaches the year-long cache before
+// setting its own (a repeated header would be sent twice, joined).
+await writeFile(join(OUT, 'main/_headers'), headers('/manifest.json\n  ! Cache-Control\n  Cache-Control: public, max-age=300\n'));
 await writeFile(join(OUT, 'idx/_headers'), headers());
 for (let s = 0; s < shards; s++) await writeFile(join(OUT, `txt${s}/_headers`), headers());
 for (let l = 0; l < listShards; l++) await writeFile(join(OUT, `lst${l}/_headers`), headers());
