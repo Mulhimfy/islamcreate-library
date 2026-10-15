@@ -1,0 +1,9 @@
+{
+  "name": "islamcreate-library",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Builds the IslamCreate library: classical Islamic books, full-text indexed, served as static files.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "license": "MIT"
+}

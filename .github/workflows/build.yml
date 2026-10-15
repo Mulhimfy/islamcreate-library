@@ -1,0 +1,65 @@
+name: Build the library
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: Books to include, spread over every category (0 = all)
+        default: '0'
+      deploy:
+        description: Deploy to Cloudflare Pages
+        type: boolean
+        default: true
+      prefix:
+        description: Pages project name prefix
+        default: islamcreate-lib
+
+concurrency: library
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Machine
+        run: nproc; free -g; df -h / /mnt
+
+      - name: Scratch space
+        run: sudo mkdir -p /mnt/work && sudo chown "$USER" /mnt/work
+
+      - name: Download the Shamela 4 extraction
+        env:
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          pip install -q -U "huggingface_hub[hf_xet]"
+          python3 pipeline/download.py /mnt/work/src "$LIMIT"
+          du -sh /mnt/work/src
+
+      - name: Build
+        run: |
+          node pipeline/build.mjs --src /mnt/work/src --out /mnt/work/out --tmp /mnt/work/tmp --limit "${{ inputs.limit }}" --workers "$(nproc)"
+          du -sh /mnt/work/out/*
+          for d in /mnt/work/out/*/; do echo "$d $(find "$d" -type f | wc -l) files"; done
+          rm -rf /mnt/work/src
+
+      - name: Deploy
+        if: ${{ inputs.deploy }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_PAGES_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: node pipeline/deploy.mjs --out /mnt/work/out --prefix "${{ inputs.prefix }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f /mnt/work/out/summary.json ]; then
+            { echo '```json'; cat /mnt/work/out/summary.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
