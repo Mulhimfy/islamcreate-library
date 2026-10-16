@@ -12,7 +12,7 @@ import { readFileSync, openSync, writeSync, closeSync, mkdirSync, writeFileSync 
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { Writer } from './lib/bytes.mjs';
-import { tokens, bucketOf } from './normalize.mjs';
+import { tokens, normalize, plain, bucketOf } from './normalize.mjs';
 
 const [w, from, to] = process.argv.slice(2, 5).map(Number);
 const { books, P, out, tmp } = JSON.parse(readFileSync(process.argv[5], 'utf8'));
@@ -25,6 +25,8 @@ const flush = (part, force) => {
   }
 };
 
+const ARABIC_WORD = /[\u0621-\u064A\u064B-\u065F\u0670\u0671-\u06D3\u0640]{2,}/g;
+const SINGLE = /^[\u0621-\u063A\u0641-\u064A\u0671-\u06D3]+$/;
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
 const TITLE_RE = /<span\b[^>]*?(?:data-type=['"]?title['"]?|class=['"]title['"])[^>]*>([\s\S]*?)<\/span>/g;
 
@@ -64,6 +66,8 @@ for (let bi = from; bi < to; bi++) {
   if (rows.length !== b.pages) process.send({ log: `book ${b.id}: ${rows.length} rows, manifest says ${b.pages}` });
 
   const terms = new Map();
+  const spelling = new Map();
+  const seen = new Set();
   const pageLabels = [];
   const pageIds = new Map();
   const vols = new Set();
@@ -102,6 +106,15 @@ for (let bi = from; bi < to; bi++) {
       if (!list) terms.set(t, (list = []));
       if (list[list.length - 1] !== i) list.push(i);
     }
+    // How each term is written here (first spelling seen in the book), so
+    // suggestions can show «الصلاة» rather than the folded «الصلاه».
+    for (const m of text.matchAll(ARABIC_WORD)) {
+      const s = plain(m[0]);
+      if (seen.has(s)) continue;
+      seen.add(s);
+      const t = normalize(s);
+      if (t.length > 1 && !spelling.has(t) && SINGLE.test(t)) spelling.set(t, s);
+    }
   }
   if (chunk.length) flushChunk(Math.floor((b.pages - 1) / P.chunkPages));
 
@@ -110,6 +123,8 @@ for (let bi = from; bi < to; bi++) {
     const part = parts[bucketOf(t, P.buckets) % P.parts];
     const wr = part.w;
     wr.str(t);
+    const sp = spelling.get(t);
+    wr.str(sp && sp !== t ? sp : '');
     wr.varint(b.gpid);
     wr.varint(list.length);
     let prev = 0;

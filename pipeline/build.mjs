@@ -157,13 +157,14 @@ log(`index: ${isum('terms')} terms, buckets ${(isum('bucketBytes') / 1e6).toFixe
 
 /* ── 3b. keyword completion ─────────────────────────────────────────────── */
 // k/<key>.json: the most frequent terms whose first two letters (article
-// aside) are <key>, as [term, pages], most pages first.
+// aside) are <key>, as [term, pages, spelling?], most pages first.
 const KW_PER_FILE = 3000;
 const byKey = new Map();
 for (let p = 0; p < P.parts; p++) {
   const file = join(TMP, `kw-${p}.json`);
   if (!existsSync(file)) continue;
-  for (const [t, df] of JSON.parse(await readFile(file, 'utf8'))) {
+  for (const row of JSON.parse(await readFile(file, 'utf8'))) {
+    const [t, df] = row;
     // Arabic words only: a key per letter pair stays well inside the
     // file limit of the main site.
     const core = t.startsWith('ال') && t.length > 3 ? t.slice(2) : t;
@@ -171,7 +172,7 @@ for (let p = 0; p < P.parts; p++) {
     const k = completionKey(t);
     let list = byKey.get(k);
     if (!list) byKey.set(k, (list = []));
-    list.push([t, df]);
+    list.push(row);
   }
   await rm(file);
 }

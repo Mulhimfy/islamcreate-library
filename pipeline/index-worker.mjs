@@ -22,15 +22,23 @@ const stats = { terms: 0, bucketBytes: 0, bucketMax: 0, large: 0, largeBytes: 0 
 
 for (let p = w; p < P.parts; p += W) {
   const terms = new Map();
+  const spellings = new Map();
   for (let tw = 0; tw < textWorkers; tw++) {
     const file = join(tmp, `part-${tw}-${p}.bin`);
     const r = new Reader(readFileSync(file));
     while (!r.done) {
       const t = r.str();
+      const sp = r.str();
       const g = r.varint();
       const n = r.varint();
       let list = terms.get(t);
       if (!list) terms.set(t, (list = []));
+      if (sp) {
+        // Count spellings by how many books use them.
+        let m = spellings.get(t);
+        if (!m) spellings.set(t, (m = new Map()));
+        m.set(sp, (m.get(sp) || 0) + 1);
+      }
       let page = 0;
       for (let i = 0; i < n; i++) {
         page += r.varint();
@@ -93,7 +101,14 @@ for (let p = w; p < P.parts; p += W) {
   }
   // Words for completion: every term on three pages or more, with its count.
   const kw = [];
-  for (const [t, post] of terms) if (post.length >= 3) kw.push([t, post.length]);
+  for (const [t, post] of terms) {
+    if (post.length < 3) continue;
+    // The usual spelling, when it differs from the folded term.
+    let best = '';
+    let most = 0;
+    for (const [sp, n] of spellings.get(t) || []) if (n > most) { best = sp; most = n; }
+    kw.push(best ? [t, post.length, best] : [t, post.length]);
+  }
   writeFileSync(join(tmp, `kw-${p}.json`), JSON.stringify(kw));
   process.send({ log: `index ${w}: partition ${p} — ${terms.size} terms` });
 }

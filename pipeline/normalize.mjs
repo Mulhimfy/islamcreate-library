@@ -69,6 +69,9 @@ export function normalize(text) {
     .toLowerCase();
 }
 
+/** A word as written, without harakat or tatweel: how a reader spells it. */
+export const plain = (word) => word.replace(MARKS_RE, '');
+
 /** Index terms of a text, in order, repeats kept. Single letters are not terms. */
 export function tokens(text) {
   return normalize(text).match(TOKEN_RE) || [];
