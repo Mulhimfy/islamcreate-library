@@ -40,6 +40,9 @@ const LIGATURES = {
   '﷿': 'عز وجل',
 };
 const LIGATURE_RE = /[﵀-﵏﷏ﷲ-﷿]/g;
+
+/** The honorific ligatures spelled out, for formats without a font that draws them. */
+export const spellHonorifics = (text) => text.replace(/[\uFD40-\uFD4F\uFDCF\uFDFE\uFDFF]/g, (c) => ` (${LIGATURES[c]}) `);
 // Presentation forms (old encodings, PDFs) fold to the letters they draw.
 const PRESENTATION_RE = /[ﭐ-ﴽﵐ-﷎ﷰﷱﹰ-﻿]+/g;
 // Harakat, tanwin, shadda, sukun, superscript alef, Quranic marks, tatweel.
