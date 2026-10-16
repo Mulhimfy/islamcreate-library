@@ -123,8 +123,10 @@ for (let bi = from; bi < to; bi++) {
     const part = parts[bucketOf(t, P.buckets) % P.parts];
     const wr = part.w;
     wr.str(t);
+    // '=' stands for "written as the folded term itself", which must count
+    // too, or a rare variant spelling would win by default.
     const sp = spelling.get(t);
-    wr.str(sp && sp !== t ? sp : '');
+    wr.str(sp ? (sp === t ? '=' : sp) : '');
     wr.varint(b.gpid);
     wr.varint(list.length);
     let prev = 0;

@@ -34,10 +34,11 @@ for (let p = w; p < P.parts; p += W) {
       let list = terms.get(t);
       if (!list) terms.set(t, (list = []));
       if (sp) {
-        // Count spellings by how many books use them.
+        // Count spellings by how many books use them ('=' is the term itself).
+        const key = sp === '=' ? t : sp;
         let m = spellings.get(t);
         if (!m) spellings.set(t, (m = new Map()));
-        m.set(sp, (m.get(sp) || 0) + 1);
+        m.set(key, (m.get(key) || 0) + 1);
       }
       let page = 0;
       for (let i = 0; i < n; i++) {
@@ -107,7 +108,7 @@ for (let p = w; p < P.parts; p += W) {
     let best = '';
     let most = 0;
     for (const [sp, n] of spellings.get(t) || []) if (n > most) { best = sp; most = n; }
-    kw.push(best ? [t, post.length, best] : [t, post.length]);
+    kw.push(best && best !== t ? [t, post.length, best] : [t, post.length]);
   }
   writeFileSync(join(tmp, `kw-${p}.json`), JSON.stringify(kw));
   process.send({ log: `index ${w}: partition ${p} — ${terms.size} terms` });
