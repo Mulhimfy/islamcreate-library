@@ -91,6 +91,10 @@ for (let p = w; p < P.parts; p += W) {
     stats.bucketBytes += gz.length;
     stats.bucketMax = Math.max(stats.bucketMax, gz.length);
   }
+  // Words for completion: every term on three pages or more, with its count.
+  const kw = [];
+  for (const [t, post] of terms) if (post.length >= 3) kw.push([t, post.length]);
+  writeFileSync(join(tmp, `kw-${p}.json`), JSON.stringify(kw));
   process.send({ log: `index ${w}: partition ${p} — ${terms.size} terms` });
 }
 process.send(stats);

@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { fork } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { CATEGORIES, GROUPS } from './categories.mjs';
-import { NORM_VERSION } from './normalize.mjs';
+import { NORM_VERSION, completionKey } from './normalize.mjs';
 
 const { values: opt } = parseArgs({
   options: {
@@ -155,6 +155,36 @@ for (const f of await readdir(join(OUT, 'lst/l'))) {
 await rm(join(OUT, 'lst'), { recursive: true });
 log(`index: ${isum('terms')} terms, buckets ${(isum('bucketBytes') / 1e6).toFixed(0)} MB (max ${Math.max(...idxStats.map((s) => s.bucketMax))} B), ${isum('large')} large lists ${(isum('largeBytes') / 1e6).toFixed(0)} MB`);
 
+/* ── 3b. keyword completion ─────────────────────────────────────────────── */
+// k/<key>.json: the most frequent terms whose first two letters (article
+// aside) are <key>, as [term, pages], most pages first.
+const KW_PER_FILE = 3000;
+const byKey = new Map();
+for (let p = 0; p < P.parts; p++) {
+  const file = join(TMP, `kw-${p}.json`);
+  if (!existsSync(file)) continue;
+  for (const [t, df] of JSON.parse(await readFile(file, 'utf8'))) {
+    // Arabic words only: a key per letter pair stays well inside the
+    // file limit of the main site.
+    const core = t.startsWith('ال') && t.length > 3 ? t.slice(2) : t;
+    if (!/^[\u0621-\u064A\u0671-\u06D3]{2}/.test(core)) continue;
+    const k = completionKey(t);
+    let list = byKey.get(k);
+    if (!list) byKey.set(k, (list = []));
+    list.push([t, df]);
+  }
+  await rm(file);
+}
+await mkdir(join(OUT, 'main/k'), { recursive: true });
+let kwTerms = 0;
+for (const [k, list] of byKey) {
+  list.sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  const top = list.slice(0, KW_PER_FILE);
+  kwTerms += top.length;
+  await writeFile(join(OUT, 'main/k', `${k}.json`), JSON.stringify(top));
+}
+log(`keywords: ${kwTerms} terms in ${byKey.size} files`);
+
 /* ── 4. catalog & manifest ──────────────────────────────────────────────── */
 const authors = new Map();
 const authorIdx = (m) => {
@@ -197,6 +227,7 @@ const manifest = {
   authors: authors.size,
   shards,
   listShards,
+  keywords: KW_PER_FILE,
   hosts: JSON.parse(opt.hosts),
   source: 'Shamela 4 full extraction (AuthenticIlm/Shamela4_Full_DB)',
 };

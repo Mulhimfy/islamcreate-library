@@ -117,3 +117,12 @@ export function hash32(s) {
 }
 
 export const bucketOf = (term, buckets) => hash32(stemKey(term)) % buckets;
+
+/**
+ * Which keyword file completes a term: the first two letters of the term
+ * without its article, so "الصلا" and "صلا" look in the same place.
+ */
+export function completionKey(term) {
+  const core = term.startsWith('ال') && term.length > 3 ? term.slice(2) : term;
+  return [...core.slice(0, 2)].map((c) => c.codePointAt(0).toString(16)).join('-');
+}
